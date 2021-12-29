@@ -26,18 +26,18 @@ const (
 )
 
 var (
-	errIfceNameNotFound = errors.New("Failed to find the name of interface")
+	errIfceNameNotFound = errors.New("failed to find the name of interface")
 	// Device Control Codes
-	tap_win_ioctl_get_mac             = tap_control_code(1, 0)
-	tap_win_ioctl_get_version         = tap_control_code(2, 0)
-	tap_win_ioctl_get_mtu             = tap_control_code(3, 0)
-	tap_win_ioctl_get_info            = tap_control_code(4, 0)
-	tap_ioctl_config_point_to_point   = tap_control_code(5, 0)
-	tap_ioctl_set_media_status        = tap_control_code(6, 0)
-	tap_win_ioctl_config_dhcp_masq    = tap_control_code(7, 0)
-	tap_win_ioctl_get_log_line        = tap_control_code(8, 0)
-	tap_win_ioctl_config_dhcp_set_opt = tap_control_code(9, 0)
-	tap_ioctl_config_tun              = tap_control_code(10, 0)
+	tap_win_ioctl_get_mac = tap_control_code(1, 0)
+	// tap_win_ioctl_get_version         = tap_control_code(2, 0)
+	// tap_win_ioctl_get_mtu             = tap_control_code(3, 0)
+	// tap_win_ioctl_get_info            = tap_control_code(4, 0)
+	// tap_ioctl_config_point_to_point   = tap_control_code(5, 0)
+	tap_ioctl_set_media_status = tap_control_code(6, 0)
+	// tap_win_ioctl_config_dhcp_masq    = tap_control_code(7, 0)
+	// tap_win_ioctl_get_log_line        = tap_control_code(8, 0)
+	// tap_win_ioctl_config_dhcp_set_opt = tap_control_code(9, 0)
+	// tap_ioctl_config_tun              = tap_control_code(10, 0)
 	// w32 api
 	file_device_unknown = uint32(0x00000022)
 	nCreateEvent,
@@ -150,7 +150,7 @@ func tap_control_code(request, method uint32) uint32 {
 func getdeviceid(componentID string, interfaceName string) (deviceid string, err error) {
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, tapDriverKey, registry.READ)
 	if err != nil {
-		return "", fmt.Errorf("Failed to open the adapter registry, TAP driver may be not installed, %v", err)
+		return "", errors.New("Failed to open the adapter registry, TAP driver may be not installed" + err.Error())
 	}
 	defer k.Close()
 	// read all subkeys, it should not return an err here
@@ -193,10 +193,10 @@ func getdeviceid(componentID string, interfaceName string) (deviceid string, err
 		key.Close()
 	}
 	if len(interfaceName) > 0 {
-		return "", fmt.Errorf("Failed to find the tap device in registry with specified ComponentId '%s' and InterfaceName '%s', TAP driver may be not installed or you may have specified an interface name that doesn't exist", componentID, interfaceName)
+		return "", errors.New("Failed to find the tap device in registry with specified ComponentId '" + componentID + "' and InterfaceName '" + interfaceName + "', TAP driver may be not installed or you may have specified an interface name that doesn't exist")
 	}
 
-	return "", fmt.Errorf("Failed to find the tap device in registry with specified ComponentId '%s', TAP driver may be not installed", componentID)
+	return "", errors.New("Failed to find the tap device in registry with specified ComponentId '" + componentID + "', TAP driver may be not installed")
 }
 
 // setStatus is used to bring up or bring down the interface
@@ -342,13 +342,13 @@ func openDev(config Config) (ifce *Interface, err error) {
 	}
 	ad, err = wintun.OpenAdapter(config.InterfaceName)
 	if err != nil {
-		ad, err = wintun.CreateAdapter(config.InterfaceName, "Wintun", nil)
+		ad, err = wintun.CreateAdapter(config.InterfaceName, "WaterWintun", nil)
 	}
 
 	if err != nil {
 		return
 	}
-	s, err := ad.StartSession(65536)
+	s, err := ad.StartSession(0x800000) // Ring capacity, 8 MiB
 	if err != nil {
 		return
 	}
