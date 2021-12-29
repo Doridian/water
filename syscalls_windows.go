@@ -336,6 +336,9 @@ func openDev(config Config) (ifce *Interface, err error) {
 		return openTap(config)
 	}
 	// TUN
+	if config.InterfaceName == "" {
+		config.InterfaceName = "Wintun"
+	}
 	ad, err := wintun.OpenAdapter(config.InterfaceName)
 	if err != nil {
 		return nil, err
