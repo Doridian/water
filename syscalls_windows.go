@@ -284,13 +284,16 @@ func openTap(config Config) (ifce *Interface, err error) {
 }
 
 type wintunRWC struct {
-	ad      *wintun.Adapter
-	s       wintun.Session
-	readmu  sync.Mutex
-	readbuf []byte
+	ad       wintun.Adapter
+	s        wintun.Session
+	readwait windows.Handle
+	readmu   sync.Mutex
+	readbuf  []byte
+	isclosed bool
 }
 
 func (w *wintunRWC) Close() error {
+	w.isclosed = true
 	w.s.End()
 	return w.ad.Close()
 }
@@ -329,6 +332,10 @@ func (w *wintunRWC) Read(b []byte) (int, error) {
 		w.readbuf = nil
 	}
 
+RETRY:
+	if w.isclosed {
+		return 0, errors.New("wintun is closed")
+	}
 	packet, err := w.s.ReceivePacket()
 	switch err {
 	case nil:
@@ -339,7 +346,8 @@ func (w *wintunRWC) Read(b []byte) (int, error) {
 		}
 		w.s.ReleaseReceivePacket(packet)
 	case windows.ERROR_NO_MORE_ITEMS:
-		return n, nil
+		windows.WaitForSingleObject(w.readwait, windows.INFINITE)
+		goto RETRY
 	}
 	return n, err
 }
@@ -368,5 +376,5 @@ func openDev(config Config) (ifce *Interface, err error) {
 		ad.Close()
 		return
 	}
-	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: ad}, name: config.InterfaceName}, nil
+	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: *ad, readwait: s.ReadWaitEvent()}, name: config.InterfaceName}, nil
 }
