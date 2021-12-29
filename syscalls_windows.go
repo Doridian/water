@@ -338,7 +338,7 @@ func openDev(config Config) (ifce *Interface, err error) {
 	// TUN
 	var ad *wintun.Adapter
 	if config.InterfaceName == "" {
-		config.InterfaceName = "WinTun"
+		config.InterfaceName = "Water WinTun Interface"
 	}
 	ad, err = wintun.OpenAdapter(config.InterfaceName)
 	if err != nil {
