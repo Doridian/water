@@ -363,9 +363,12 @@ func openDev(config Config) (ifce *Interface, err error) {
 	if config.InterfaceName == "" {
 		config.InterfaceName = "WaterWinTunInterface"
 	}
+	if config.ComponentID == "" {
+		config.ComponentID = "WaterWintun"
+	}
 	ad, err = wintun.OpenAdapter(config.InterfaceName)
 	if err != nil {
-		ad, err = wintun.CreateAdapter(config.InterfaceName, "WaterWintun", nil)
+		ad, err = wintun.CreateAdapter(config.InterfaceName, config.ComponentID, nil)
 	}
 
 	if err != nil {
@@ -376,5 +379,5 @@ func openDev(config Config) (ifce *Interface, err error) {
 		ad.Close()
 		return
 	}
-	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: *ad, readwait: s.ReadWaitEvent()}, name: config.InterfaceName}, nil
+	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: *ad, readwait: s.ReadWaitEvent()}, name: config.ComponentID + " Tunnel"}, nil
 }
