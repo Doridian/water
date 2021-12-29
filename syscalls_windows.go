@@ -13,7 +13,7 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 
-	"golang.zx2c4.com/wintun"
+	"github.com/fumiama/wintun"
 )
 
 // To use it with windows, you need a tap driver installed on windows.
