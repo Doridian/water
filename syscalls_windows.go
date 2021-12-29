@@ -336,16 +336,21 @@ func openDev(config Config) (ifce *Interface, err error) {
 		return openTap(config)
 	}
 	// TUN
+	var ad *wintun.Adapter
 	if config.InterfaceName == "" {
-		config.InterfaceName = "Wintun"
+		config.InterfaceName = "WinTun"
 	}
-	ad, err := wintun.OpenAdapter(config.InterfaceName)
+	ad, err = wintun.OpenAdapter(config.InterfaceName)
 	if err != nil {
-		return nil, err
+		ad, err = wintun.CreateAdapter(config.InterfaceName, "Wintun", nil)
+	}
+
+	if err != nil {
+		return
 	}
 	s, err := ad.StartSession(65536)
 	if err != nil {
-		return nil, err
+		return
 	}
 	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: ad}, name: config.InterfaceName}, nil
 }
