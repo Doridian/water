@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"sync"
 	"syscall"
 	"unsafe"
 
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
+
 	"golang.zx2c4.com/wintun"
 )
 
@@ -293,8 +296,18 @@ func (w *wintunRWC) Close() error {
 }
 
 func (w *wintunRWC) Write(b []byte) (int, error) {
-	w.s.SendPacket(b)
-	return len(b), nil
+	packet, err := w.s.AllocateSendPacket(len(b))
+	switch err {
+	case nil:
+		w.s.SendPacket(packet)
+		return len(b), nil
+	case windows.ERROR_HANDLE_EOF:
+		return 0, os.ErrClosed
+	case windows.ERROR_BUFFER_OVERFLOW:
+		return 0, nil // Dropping when ring is full.
+	default:
+		return 0, err
+	}
 }
 
 func (w *wintunRWC) Read(b []byte) (int, error) {
@@ -317,15 +330,17 @@ func (w *wintunRWC) Read(b []byte) (int, error) {
 	}
 
 	packet, err := w.s.ReceivePacket()
-	if err != nil {
-		return n, err
+	switch err {
+	case nil:
+		n += copy(b, packet)
+		if len(packet) > len(b) {
+			w.readbuf = make([]byte, len(packet)-len(b))
+			copy(w.readbuf, packet[len(b):])
+		}
+		w.s.ReleaseReceivePacket(packet)
+	case windows.ERROR_NO_MORE_ITEMS:
+		return n, nil
 	}
-
-	n += copy(b, packet)
-	if len(packet) > len(b) {
-		w.readbuf = packet[len(b):]
-	}
-
 	return n, err
 }
 
@@ -350,6 +365,7 @@ func openDev(config Config) (ifce *Interface, err error) {
 	}
 	s, err := ad.StartSession(0x800000) // Ring capacity, 8 MiB
 	if err != nil {
+		ad.Close()
 		return
 	}
 	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: ad}, name: config.InterfaceName}, nil
