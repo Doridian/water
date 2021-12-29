@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows/registry"
+	"golang.zx2c4.com/wintun"
 )
 
 // To use it with windows, you need a tap driver installed on windows.
@@ -209,33 +210,7 @@ func setStatus(fd syscall.Handle, status bool) error {
 	return syscall.DeviceIoControl(fd, tap_ioctl_set_media_status, &code[0], uint32(4), &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil)
 }
 
-// setTUN is used to configure the IP address in the underlying driver when using TUN
-func setTUN(fd syscall.Handle, network string) error {
-	var bytesReturned uint32
-	rdbbuf := make([]byte, syscall.MAXIMUM_REPARSE_DATA_BUFFER_SIZE)
-
-	localIP, remoteNet, err := net.ParseCIDR(network)
-	if err != nil {
-		return fmt.Errorf("Failed to parse network CIDR in config, %v", err)
-	}
-	if localIP.To4() == nil {
-		return fmt.Errorf("Provided network(%s) is not a valid IPv4 address", network)
-	}
-	code2 := make([]byte, 0, 12)
-	code2 = append(code2, localIP.To4()[:4]...)
-	code2 = append(code2, remoteNet.IP.To4()[:4]...)
-	code2 = append(code2, remoteNet.Mask[:4]...)
-	if len(code2) != 12 {
-		return fmt.Errorf("Provided network(%s) is not valid", network)
-	}
-	if err := syscall.DeviceIoControl(fd, tap_ioctl_config_tun, &code2[0], uint32(12), &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil); err != nil {
-		return err
-	}
-	return nil
-}
-
-// openDev find and open an interface.
-func openDev(config Config) (ifce *Interface, err error) {
+func openTap(config Config) (ifce *Interface, err error) {
 	// find the device in registry.
 	deviceid, err := getdeviceid(config.PlatformSpecificParams.ComponentID, config.PlatformSpecificParams.InterfaceName)
 	if err != nil {
@@ -281,13 +256,6 @@ func openDev(config Config) (ifce *Interface, err error) {
 	fd := &wfile{fd: file, ro: ro, wo: wo}
 	ifce = &Interface{isTAP: (config.DeviceType == TAP), ReadWriteCloser: fd}
 
-	//TUN
-	if config.DeviceType == TUN {
-		if err := setTUN(file, config.PlatformSpecificParams.Network); err != nil {
-			return nil, err
-		}
-	}
-
 	// bring up device.
 	if err := setStatus(file, true); err != nil {
 		return nil, err
@@ -310,4 +278,71 @@ func openDev(config Config) (ifce *Interface, err error) {
 	}
 
 	return nil, errIfceNameNotFound
+}
+
+type wintunRWC struct {
+	ad      *wintun.Adapter
+	s       wintun.Session
+	readmu  sync.Mutex
+	readbuf []byte
+}
+
+func (w *wintunRWC) Close() error {
+	w.s.End()
+	return w.ad.Close()
+}
+
+func (w *wintunRWC) Write(b []byte) (int, error) {
+	w.s.SendPacket(b)
+	return len(b), nil
+}
+
+func (w *wintunRWC) Read(b []byte) (int, error) {
+	w.readmu.Lock()
+	defer w.readmu.Unlock()
+
+	n := 0
+
+	if w.readbuf != nil {
+		n = copy(b, w.readbuf)
+		if len(w.readbuf) >= len(b) {
+			w.readbuf = w.readbuf[len(b):]
+			if len(w.readbuf) == 0 {
+				w.readbuf = nil
+			}
+			return n, nil
+		}
+		b = b[len(w.readbuf):]
+		w.readbuf = nil
+	}
+
+	packet, err := w.s.ReceivePacket()
+	if err != nil {
+		return n, err
+	}
+
+	n += copy(b, packet)
+	if len(packet) > len(b) {
+		w.readbuf = packet[len(b):]
+	}
+
+	return n, err
+}
+
+// openDev find and open an interface.
+func openDev(config Config) (ifce *Interface, err error) {
+	// TAP
+	if config.DeviceType == TAP {
+		return openTap(config)
+	}
+	// TUN
+	ad, err := wintun.OpenAdapter(config.InterfaceName)
+	if err != nil {
+		return nil, err
+	}
+	s, err := ad.StartSession(65536)
+	if err != nil {
+		return nil, err
+	}
+	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: ad}, name: config.InterfaceName}, nil
 }
