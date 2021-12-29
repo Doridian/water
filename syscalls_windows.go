@@ -382,5 +382,5 @@ func openDev(config Config) (ifce *Interface, err error) {
 		ad.Close()
 		return
 	}
-	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: *ad, readwait: s.ReadWaitEvent()}, name: config.ComponentID + " Tunnel"}, nil
+	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: *ad, readwait: s.ReadWaitEvent()}, name: config.InterfaceName}, nil
 }
