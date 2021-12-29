@@ -214,6 +214,9 @@ func setStatus(fd syscall.Handle, status bool) error {
 }
 
 func openTap(config Config) (ifce *Interface, err error) {
+	if config.ComponentID == "" {
+		config.ComponentID = "root\\tap0901"
+	}
 	// find the device in registry.
 	deviceid, err := getdeviceid(config.PlatformSpecificParams.ComponentID, config.PlatformSpecificParams.InterfaceName)
 	if err != nil {

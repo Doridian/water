@@ -28,7 +28,6 @@ type PlatformSpecificParams struct {
 
 func defaultPlatformSpecificParams() PlatformSpecificParams {
 	return PlatformSpecificParams{
-		ComponentID: "root\\tap0901",
-		Network:     "192.168.1.10/24",
+		Network: "192.168.234.0/24",
 	}
 }
