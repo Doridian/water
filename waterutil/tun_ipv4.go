@@ -1,6 +1,7 @@
 package waterutil
 
 import (
+	"encoding/binary"
 	"net"
 )
 
@@ -10,6 +11,10 @@ func IPv4DSCP(packet []byte) byte {
 
 func IPv4ECN(packet []byte) byte {
 	return packet[1] & 0x03
+}
+
+func IPv4TotalLength(packet []byte) uint16 {
+	return binary.BigEndian.Uint16(packet[2:4])
 }
 
 func IPv4Identification(packet []byte) [2]byte {
