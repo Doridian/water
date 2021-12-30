@@ -305,6 +305,7 @@ func (w *wintunRWC) Write(b []byte) (int, error) {
 	packet, err := w.s.AllocateSendPacket(len(b))
 	switch err {
 	case nil:
+		copy(packet, b)
 		w.s.SendPacket(packet)
 		return len(b), nil
 	case windows.ERROR_HANDLE_EOF:
