@@ -359,6 +359,9 @@ func (w *wintunRWC) Write(b []byte) (int, error) {
 }
 
 func (w *wintunRWC) Read(b []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	n := 0
 
 	if w.readbuf != nil {
@@ -380,8 +383,6 @@ RETRY:
 	}
 	start := nanotime()
 	shouldSpin := atomic.LoadUint64(&w.rate.current) >= spinloopRateThreshold && uint64(start-atomic.LoadInt64(&w.rate.nextStartTime)) <= rateMeasurementGranularity*2
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	for {
 		packet, err := w.s.ReceivePacket()
 		switch err {
