@@ -324,7 +324,7 @@ func (rate *rateJuggler) update(packetLen uint64) {
 }
 
 type wintunRWC struct {
-	ad       wintun.Adapter
+	ad       *wintun.Adapter
 	s        wintun.Session
 	rate     rateJuggler
 	readwait windows.Handle
@@ -450,5 +450,5 @@ func openDev(config Config) (ifce *Interface, err error) {
 		ad.Close()
 		return
 	}
-	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: *ad, readwait: s.ReadWaitEvent()}, name: config.InterfaceName}, nil
+	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: ad, readwait: s.ReadWaitEvent()}, name: config.InterfaceName}, nil
 }
