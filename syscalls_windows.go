@@ -401,6 +401,7 @@ RETRY:
 			}
 			w.s.ReleaseReceivePacket(packet)
 			w.rate.update(uint64(packetSize))
+			return n, nil
 		case windows.ERROR_NO_MORE_ITEMS:
 			if !shouldSpin || uint64(nanotime()-start) >= spinloopDuration {
 				w.mu.Unlock()
