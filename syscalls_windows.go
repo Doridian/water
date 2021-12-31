@@ -396,10 +396,14 @@ RETRY:
 			w.rate.update(uint64(packetSize))
 		case windows.ERROR_NO_MORE_ITEMS:
 			if !shouldSpin || uint64(nanotime()-start) >= spinloopDuration {
+				w.mu.Unlock()
 				windows.WaitForSingleObject(w.readwait, windows.INFINITE)
+				w.mu.Lock()
 				goto RETRY
 			}
+			w.mu.Unlock()
 			procyield(1)
+			w.mu.Lock()
 			continue
 		}
 		return n, err
