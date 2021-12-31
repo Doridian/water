@@ -326,10 +326,10 @@ func (rate *rateJuggler) update(packetLen uint64) {
 type wintunRWC struct {
 	ad       wintun.Adapter
 	s        wintun.Session
-	readwait windows.Handle
-	readbuf  []byte
 	rate     rateJuggler
+	readwait windows.Handle
 	mu       sync.Mutex
+	readbuf  []byte
 	isclosed bool
 }
 
@@ -343,6 +343,7 @@ func (w *wintunRWC) Write(b []byte) (int, error) {
 	w.rate.update(uint64(len(b)))
 	w.mu.Lock()
 	defer w.mu.Unlock()
+ALLOC:
 	packet, err := w.s.AllocateSendPacket(len(b))
 	switch err {
 	case nil:
@@ -350,6 +351,11 @@ func (w *wintunRWC) Write(b []byte) (int, error) {
 		w.s.SendPacket(packet)
 		return len(b), nil
 	case windows.ERROR_HANDLE_EOF:
+		w.s.End()
+		w.s, err = w.ad.StartSession(0x800000) // Ring capacity, 8 MiB
+		if err == nil {
+			goto ALLOC
+		}
 		return 0, os.ErrClosed
 	case windows.ERROR_BUFFER_OVERFLOW:
 		return 0, nil // Dropping when ring is full.
@@ -405,6 +411,11 @@ RETRY:
 			w.mu.Unlock()
 			procyield(1)
 			w.mu.Lock()
+			continue
+		}
+		w.s.End()
+		w.s, err = w.ad.StartSession(0x800000) // Ring capacity, 8 MiB
+		if err == nil {
 			continue
 		}
 		return n, err
