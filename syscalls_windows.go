@@ -329,6 +329,7 @@ type wintunRWC struct {
 	readwait windows.Handle
 	readbuf  []byte
 	rate     rateJuggler
+	mu       sync.Mutex
 	isclosed bool
 }
 
@@ -340,6 +341,8 @@ func (w *wintunRWC) Close() error {
 
 func (w *wintunRWC) Write(b []byte) (int, error) {
 	w.rate.update(uint64(len(b)))
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	packet, err := w.s.AllocateSendPacket(len(b))
 	switch err {
 	case nil:
@@ -377,6 +380,8 @@ RETRY:
 	}
 	start := nanotime()
 	shouldSpin := atomic.LoadUint64(&w.rate.current) >= spinloopRateThreshold && uint64(start-atomic.LoadInt64(&w.rate.nextStartTime)) <= rateMeasurementGranularity*2
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	for {
 		packet, err := w.s.ReceivePacket()
 		switch err {
