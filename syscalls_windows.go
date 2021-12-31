@@ -290,7 +290,6 @@ type wintunRWC struct {
 	ad       wintun.Adapter
 	s        wintun.Session
 	readwait windows.Handle
-	readmu   sync.Mutex
 	readbuf  []byte
 	isclosed bool
 }
@@ -318,9 +317,6 @@ func (w *wintunRWC) Write(b []byte) (int, error) {
 }
 
 func (w *wintunRWC) Read(b []byte) (int, error) {
-	w.readmu.Lock()
-	defer w.readmu.Unlock()
-
 	n := 0
 
 	if w.readbuf != nil {
