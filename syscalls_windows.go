@@ -11,7 +11,6 @@ import (
 	"time"
 	"unsafe"
 
-	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 
 	wintun "golang.zx2c4.com/wireguard/tun"
@@ -323,20 +322,15 @@ func (rate *rateJuggler) update(packetLen uint64) {
 }
 
 type wintunRWC struct {
-	ad       wintun.Device
-	rate     rateJuggler
-	mu       sync.Mutex
-	readbuf  []byte
-	isclosed bool
+	ad wintun.Device
+	mu sync.Mutex
 }
 
 func (w *wintunRWC) Close() error {
-	w.isclosed = true
 	return w.ad.Close()
 }
 
 func (w *wintunRWC) Write(b []byte) (int, error) {
-	w.rate.update(uint64(len(b)))
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -347,54 +341,7 @@ func (w *wintunRWC) Read(b []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	n := 0
-
-	if w.readbuf != nil {
-		n = copy(b, w.readbuf)
-		if len(w.readbuf) >= len(b) {
-			w.readbuf = w.readbuf[len(b):]
-			if len(w.readbuf) == 0 {
-				w.readbuf = nil
-			}
-			return n, nil
-		}
-		b = b[len(w.readbuf):]
-		w.readbuf = nil
-	}
-
-RETRY:
-	if w.isclosed {
-		return 0, errors.New("wintun is closed")
-	}
-	packet := make([]byte, 0xffff)
-	start := nanotime()
-	shouldSpin := atomic.LoadUint64(&w.rate.current) >= spinloopRateThreshold && uint64(start-atomic.LoadInt64(&w.rate.nextStartTime)) <= rateMeasurementGranularity*2
-	for {
-		packetSize, err := w.ad.Read(packet, 0)
-		switch err {
-		case nil:
-			n += copy(b, packet)
-			if packetSize > len(b) {
-				w.readbuf = make([]byte, packetSize-len(b))
-				copy(w.readbuf, packet[len(b):])
-			}
-			w.rate.update(uint64(packetSize))
-			return n, nil
-		case windows.ERROR_NO_MORE_ITEMS:
-			if !shouldSpin || uint64(nanotime()-start) >= spinloopDuration {
-				w.mu.Unlock()
-				<-w.ad.Events()
-				w.mu.Lock()
-				goto RETRY
-			}
-			w.mu.Unlock()
-			procyield(1)
-			w.mu.Lock()
-			continue
-		default:
-			return 0, err
-		}
-	}
+	return w.ad.Read(b, 0)
 }
 
 // openDev find and open an interface.
