@@ -322,8 +322,9 @@ func (rate *rateJuggler) update(packetLen uint64) {
 }
 
 type wintunRWC struct {
-	ad wintun.Device
-	mu sync.Mutex
+	ad  wintun.Device
+	rmu sync.Mutex
+	wmu sync.Mutex
 }
 
 func (w *wintunRWC) Close() error {
@@ -331,15 +332,15 @@ func (w *wintunRWC) Close() error {
 }
 
 func (w *wintunRWC) Write(b []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.wmu.Lock()
+	defer w.wmu.Unlock()
 
 	return w.ad.Write(b, 0)
 }
 
 func (w *wintunRWC) Read(b []byte) (int, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	w.rmu.Lock()
+	defer w.rmu.Unlock()
 
 	return w.ad.Read(b, 0)
 }
