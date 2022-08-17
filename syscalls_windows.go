@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -15,7 +14,7 @@ import (
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 
-	"github.com/fumiama/wintun"
+	wintun "golang.zx2c4.com/wireguard/tun"
 )
 
 // To use it with windows, you need a tap driver installed on windows.
@@ -324,10 +323,8 @@ func (rate *rateJuggler) update(packetLen uint64) {
 }
 
 type wintunRWC struct {
-	ad       *wintun.Adapter
-	s        wintun.Session
+	ad       wintun.Device
 	rate     rateJuggler
-	readwait windows.Handle
 	mu       sync.Mutex
 	readbuf  []byte
 	isclosed bool
@@ -335,7 +332,6 @@ type wintunRWC struct {
 
 func (w *wintunRWC) Close() error {
 	w.isclosed = true
-	w.s.End()
 	return w.ad.Close()
 }
 
@@ -343,25 +339,8 @@ func (w *wintunRWC) Write(b []byte) (int, error) {
 	w.rate.update(uint64(len(b)))
 	w.mu.Lock()
 	defer w.mu.Unlock()
-ALLOC:
-	packet, err := w.s.AllocateSendPacket(len(b))
-	switch err {
-	case nil:
-		copy(packet, b)
-		w.s.SendPacket(packet)
-		return len(b), nil
-	case windows.ERROR_HANDLE_EOF:
-		w.s.End()
-		w.s, err = w.ad.StartSession(0x800000) // Ring capacity, 8 MiB
-		if err == nil {
-			goto ALLOC
-		}
-		return 0, os.ErrClosed
-	case windows.ERROR_BUFFER_OVERFLOW:
-		return 0, nil // Dropping when ring is full.
-	default:
-		return 0, err
-	}
+
+	return w.ad.Write(b, 0)
 }
 
 func (w *wintunRWC) Read(b []byte) (int, error) {
@@ -387,25 +366,24 @@ RETRY:
 	if w.isclosed {
 		return 0, errors.New("wintun is closed")
 	}
+	packet := make([]byte, 0xffff)
 	start := nanotime()
 	shouldSpin := atomic.LoadUint64(&w.rate.current) >= spinloopRateThreshold && uint64(start-atomic.LoadInt64(&w.rate.nextStartTime)) <= rateMeasurementGranularity*2
 	for {
-		packet, err := w.s.ReceivePacket()
+		packetSize, err := w.ad.Read(packet, 0)
 		switch err {
 		case nil:
-			packetSize := len(packet)
 			n += copy(b, packet)
-			if len(packet) > len(b) {
-				w.readbuf = make([]byte, len(packet)-len(b))
+			if packetSize > len(b) {
+				w.readbuf = make([]byte, packetSize-len(b))
 				copy(w.readbuf, packet[len(b):])
 			}
-			w.s.ReleaseReceivePacket(packet)
 			w.rate.update(uint64(packetSize))
 			return n, nil
 		case windows.ERROR_NO_MORE_ITEMS:
 			if !shouldSpin || uint64(nanotime()-start) >= spinloopDuration {
 				w.mu.Unlock()
-				windows.WaitForSingleObject(w.readwait, windows.INFINITE)
+				<-w.ad.Events()
 				w.mu.Lock()
 				goto RETRY
 			}
@@ -413,13 +391,9 @@ RETRY:
 			procyield(1)
 			w.mu.Lock()
 			continue
+		default:
+			return 0, err
 		}
-		w.s.End()
-		w.s, err = w.ad.StartSession(0x800000) // Ring capacity, 8 MiB
-		if err == nil {
-			continue
-		}
-		return n, err
 	}
 }
 
@@ -430,25 +404,17 @@ func openDev(config Config) (ifce *Interface, err error) {
 		return openTap(config)
 	}
 	// TUN
-	var ad *wintun.Adapter
+	var ad wintun.Device
 	if config.InterfaceName == "" {
 		config.InterfaceName = "WaterWinTunInterface"
 	}
 	if config.ComponentID == "" {
 		config.ComponentID = "WaterWintun"
 	}
-	ad, err = wintun.OpenAdapter(config.InterfaceName)
-	if err != nil {
-		ad, err = wintun.CreateAdapter(config.InterfaceName, config.ComponentID, nil)
-	}
+	ad, err = wintun.CreateTUN(config.InterfaceName, 1500)
 
 	if err != nil {
 		return
 	}
-	s, err := ad.StartSession(0x800000) // Ring capacity, 8 MiB
-	if err != nil {
-		ad.Close()
-		return
-	}
-	return &Interface{ReadWriteCloser: &wintunRWC{s: s, ad: ad, readwait: s.ReadWaitEvent()}, name: config.InterfaceName}, nil
+	return &Interface{ReadWriteCloser: &wintunRWC{ad: ad}, name: config.InterfaceName}, nil
 }
