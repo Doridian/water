@@ -366,3 +366,16 @@ func openDev(config Config) (ifce *Interface, err error) {
 	}
 	return &Interface{ReadWriteCloser: &wintunRWC{ad: ad}, name: config.InterfaceName}, nil
 }
+
+func (i *Interface) ForceMTU(mtu int) bool {
+	wtun, ok := i.ReadWriteCloser.(*wintunRWC)
+	if !ok {
+		return false
+	}
+	ad, ok := wtun.ad.(*wintun.NativeTun)
+	if !ok {
+		return false
+	}
+	ad.ForceMTU(mtu)
+	return true
+}
