@@ -80,9 +80,10 @@ func openDevSystem(config Config) (ifce *Interface, err error) {
 	return nil, errors.New("unrecognized type")
 }
 
-type SockaddrRaw struct {
-	Family uint16
-	IfName [16]byte
+type sockaddrNdrv struct {
+	sndLen    uint8
+	sndFamily uint8
+	sndName   [16]byte
 }
 
 type ifaceCloser struct {
@@ -201,15 +202,22 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 		closer.Close()
 		return nil, err
 	}
-	sockaddr := &SockaddrRaw{
-		Family: 27,
+	sockaddr := &sockaddrNdrv{
+		sndFamily: 27,
+		sndLen:    1 + 1 + 16,
 	}
-	copy(sockaddr.IfName[:], []byte(ifaceInjectorName))
-	_, _, errno := syscall.Syscall(syscall.SYS_BIND, uintptr(injectFd), uintptr(unsafe.Pointer(sockaddr)), uintptr(2+16))
+	copy(sockaddr.sndName[:], []byte(ifaceInjectorName))
+	_, _, errno := syscall.Syscall(syscall.SYS_BIND, uintptr(injectFd), uintptr(unsafe.Pointer(sockaddr)), uintptr(sockaddr.sndLen))
 	if errno != 0 {
 		syscall.Close(injectFd)
 		closer.Close()
 		return nil, fmt.Errorf("bind error = %d", errno)
+	}
+	_, _, errno = syscall.Syscall(syscall.SYS_CONNECT, uintptr(injectFd), uintptr(unsafe.Pointer(sockaddr)), uintptr(sockaddr.sndLen))
+	if errno != 0 {
+		syscall.Close(injectFd)
+		closer.Close()
+		return nil, fmt.Errorf("connect error = %d", errno)
 	}
 
 	bpfCapture, err := bsdbpf.NewBPFSniffer(
