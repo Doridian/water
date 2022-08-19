@@ -3,6 +3,7 @@ module github.com/Doridian/water
 go 1.17
 
 require (
+	github.com/google/gopacket v1.1.19
 	golang.org/x/sys v0.0.0-20220315194320-039c03cc5b86
 	golang.zx2c4.com/wireguard v0.0.0-20220703234212-c31a7b1ab478
 )

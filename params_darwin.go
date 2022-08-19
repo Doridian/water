@@ -22,6 +22,9 @@ type PlatformSpecificParams struct {
 	// For SystemDriver, the name should match `utun[0-9]+`, e.g. utun233
 	Name string
 
+	// Name for the second feth interface required for TAP.
+	TAPInjectorName string
+
 	// Driver should be set if an alternative driver is desired
 	// e.g. TunTapOSXDriver
 	Driver MacOSDriverProvider

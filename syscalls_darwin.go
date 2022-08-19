@@ -6,11 +6,14 @@ import (
 	"io"
 	"math"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"unsafe"
+
+	"github.com/google/gopacket/bsdbpf"
 )
 
 const appleUTUNCtl = "com.apple.net.utun_control"
@@ -34,12 +37,6 @@ const appleUTUNCtl = "com.apple.net.utun_control"
  */
 
 const appleCTLIOCGINFO = (0x40000000 | 0x80000000) | ((100 & 0x1fff) << 16) | uint32(byte('N'))<<8 | 3
-
-/*
- * #define _IOW(g,n,t) _IOC(IOC_IN, (g), (n), sizeof(t))
- * #define TUNSIFMODE _IOW('t', 94, int)
- */
-const appleTUNSIFMODE = (0x80000000) | ((4 & 0x1fff) << 16) | uint32(byte('t'))<<8 | 94
 
 /*
  * struct sockaddr_ctl {
@@ -74,10 +71,173 @@ func openDev(config Config) (ifce *Interface, err error) {
 
 // openDevSystem opens tun device on system
 func openDevSystem(config Config) (ifce *Interface, err error) {
-	if config.DeviceType != TUN {
-		return nil, errors.New("only tun is implemented for SystemDriver, use TunTapOSXDriver for tap")
+	if config.DeviceType == TUN {
+		return openDevTunSystem(config)
+	}
+	if config.DeviceType == TAP {
+		return openDevTapSystem(config)
+	}
+	return nil, errors.New("unrecognized type")
+}
+
+type SockaddrRaw struct {
+	Family uint16
+	IfName [16]byte
+}
+
+type ifaceCloser struct {
+	ifaces     []string
+	additional []io.Closer
+}
+
+func (i *ifaceCloser) Close() error {
+	for _, iface := range i.ifaces {
+		exec.Command("ifconfig", iface, "destroy").Run()
+	}
+	for _, add := range i.additional {
+		add.Close()
+	}
+	return nil
+}
+
+type bpfReader struct {
+	bpfCapture *bsdbpf.BPFSniffer
+}
+
+func (b *bpfReader) Read(p []byte) (n int, err error) {
+	pkt, _, err := b.bpfCapture.ReadPacketData()
+	if err != nil {
+		return 0, err
 	}
 
+	if len(pkt) > len(p) {
+		copy(p, pkt[:len(p)])
+		return len(p), nil
+	}
+
+	copy(p, pkt)
+	return len(pkt), nil
+}
+
+func (b *bpfReader) Close() error {
+	return b.bpfCapture.Close()
+}
+
+var _ io.ReadCloser = (*bpfReader)(nil)
+
+func checkIfaceNameWithPrefix(name string, prefix string, allowBlank bool) (int, error) {
+	errInvalid := fmt.Errorf("interface name must bew %s[0-9]+", prefix)
+
+	if name == "" {
+		if allowBlank {
+			return -1, nil
+		}
+		return -1, errInvalid
+	}
+
+	if !strings.HasPrefix(name, prefix) {
+		return -1, errInvalid
+	}
+	ifIndex, err := strconv.Atoi(name[len(prefix):])
+	if err != nil || ifIndex < 0 || ifIndex > math.MaxUint32-1 {
+		return -1, errInvalid
+	}
+
+	return ifIndex, nil
+}
+
+func openDevTapSystem(config Config) (ifce *Interface, err error) {
+	_, err = checkIfaceNameWithPrefix(config.Name, "feth", true)
+	if err != nil {
+		return
+	}
+
+	_, err = checkIfaceNameWithPrefix(config.TAPInjectorName, "feth", true)
+	if err != nil {
+		return
+	}
+
+	if config.Name != "" && config.Name == config.TAPInjectorName {
+		return nil, errors.New("Name must not be the same as TAPInjectorName")
+	}
+
+	ifaceOSName := config.Name
+	ifaceInjectorName := config.TAPInjectorName
+
+	closer := &ifaceCloser{
+		ifaces:     []string{},
+		additional: []io.Closer{},
+	}
+
+	if ifaceOSName == "" {
+		ifaceOSName = FindLowestNetworkInterfaceByPrefix("feth")
+	}
+	err = exec.Command("ifconfig", ifaceOSName, "create").Run()
+	if err != nil {
+		closer.Close()
+		return nil, err
+	}
+	closer.ifaces = append(closer.ifaces, ifaceOSName)
+
+	if ifaceInjectorName == "" {
+		ifaceInjectorName = FindLowestNetworkInterfaceByPrefix("feth")
+	}
+	err = exec.Command("ifconfig", ifaceInjectorName, "create").Run()
+	if err != nil {
+		closer.Close()
+		return nil, err
+	}
+	closer.ifaces = append(closer.ifaces, ifaceInjectorName)
+
+	err = exec.Command("ifconfig", ifaceOSName, "peer", ifaceInjectorName).Run()
+	if err != nil {
+		closer.Close()
+		return nil, err
+	}
+
+	// AF_NDRV = 27
+	injectFd, err := syscall.Socket(27, syscall.SOCK_RAW, 0)
+	if err != nil {
+		closer.Close()
+		return nil, err
+	}
+	sockaddr := &SockaddrRaw{
+		Family: 27,
+	}
+	copy(sockaddr.IfName[:], []byte(ifaceInjectorName))
+	_, _, errno := syscall.Syscall(syscall.SYS_BIND, uintptr(injectFd), uintptr(unsafe.Pointer(sockaddr)), uintptr(2+16))
+	if errno != 0 {
+		syscall.Close(injectFd)
+		closer.Close()
+		return nil, fmt.Errorf("bind error = %d", errno)
+	}
+
+	bpfCapture, err := bsdbpf.NewBPFSniffer(
+		ifaceInjectorName,
+		nil,
+	)
+	if err != nil {
+		closer.Close()
+		return nil, err
+	}
+
+	closer.additional = append(closer.additional, bpfCapture)
+
+	bpfReader := &bpfReader{bpfCapture: bpfCapture}
+	injectHdl := os.NewFile(uintptr(injectFd), string(ifaceInjectorName[:]))
+
+	return &Interface{
+		isTAP: config.DeviceType == TAP,
+		ReadWriteCloser: &tapReadCloser{
+			ifaceInjectR: bpfReader,
+			ifaceInjectW: injectHdl,
+			closer:       closer,
+		},
+		name: ifaceOSName,
+	}, nil
+}
+
+func openDevTunSystem(config Config) (ifce *Interface, err error) {
 	ifIndex := -1
 	if config.Name != "" {
 		const utunPrefix = "utun"
@@ -256,7 +416,7 @@ func (t *tunReadCloser) Write(from []byte) (int, error) {
 	} else if ipVer == 6 {
 		t.wBuf[3] = syscall.AF_INET6
 	} else {
-		return 0, errors.New("Unable to determine IP version from packet")
+		return 0, errors.New("unable to determine IP version from packet")
 	}
 
 	copy(t.wBuf[4:], from)
@@ -267,4 +427,38 @@ func (t *tunReadCloser) Write(from []byte) (int, error) {
 
 func (t *tunReadCloser) Close() error {
 	return t.f.Close()
+}
+
+func setNonBlock(fd int) error {
+	return syscall.SetNonblock(fd, true)
+}
+
+type tapReadCloser struct {
+	closer       io.Closer
+	ifaceInjectW io.WriteCloser
+	ifaceInjectR io.ReadCloser
+
+	rMu sync.Mutex
+	wMu sync.Mutex
+}
+
+var _ io.ReadWriteCloser = (*tapReadCloser)(nil)
+
+func (t *tapReadCloser) Read(p []byte) (n int, err error) {
+	t.rMu.Lock()
+	defer t.rMu.Unlock()
+	return t.ifaceInjectR.Read(p)
+}
+
+func (t *tapReadCloser) Write(p []byte) (n int, err error) {
+	t.wMu.Lock()
+	defer t.wMu.Unlock()
+	return t.ifaceInjectW.Write(p)
+}
+
+func (t *tapReadCloser) Close() error {
+	t.ifaceInjectR.Close()
+	t.ifaceInjectW.Close()
+	t.closer.Close()
+	return nil
 }
