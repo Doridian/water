@@ -515,9 +515,45 @@ func (t *tapReadCloser) Close() error {
 	return nil
 }
 
+const maxMTUSysctl = "net.link.fake.max_mtu"
+
+var maxMTUChangeLock sync.Mutex
+var maxMTUSet uint32 = 0
+
+func EnsureMTUAdjust(mtu uint32) error {
+	if maxMTUSet >= mtu {
+		return nil
+	}
+
+	maxMTUChangeLock.Lock()
+	defer maxMTUChangeLock.Unlock()
+
+	maxMtu, err := syscall.SysctlUint32(maxMTUSysctl)
+	if err != nil {
+		return err
+	}
+
+	maxMTUSet = maxMtu
+
+	if maxMTUSet >= mtu {
+		return nil
+	}
+
+	err = exec.Command("sysctl", fmt.Sprintf("%s=%d", maxMTUSysctl, mtu)).Run()
+	if err == nil {
+		maxMTUSet = mtu
+	}
+	return err
+}
+
 func (i *Interface) SetMTU(mtu int) error {
 	if i.secondaryName != "" {
-		err := exec.Command("ifconfig", i.secondaryName, "mtu", fmt.Sprintf("%d", mtu)).Run()
+		err := EnsureMTUAdjust(uint32(mtu))
+		if err != nil {
+			return err
+		}
+
+		err = exec.Command("ifconfig", i.secondaryName, "mtu", fmt.Sprintf("%d", mtu)).Run()
 		if err != nil {
 			return err
 		}
