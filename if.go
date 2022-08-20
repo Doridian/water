@@ -13,7 +13,8 @@ import (
 type Interface struct {
 	isTAP bool
 	io.ReadWriteCloser
-	name string
+	name          string
+	secondaryName string
 }
 
 // DeviceType is the type for specifying device types.

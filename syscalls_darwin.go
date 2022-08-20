@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -92,11 +93,18 @@ type ifaceCloser struct {
 }
 
 func (i *ifaceCloser) Close() error {
+	var err error
 	for _, iface := range i.ifaces {
-		exec.Command("ifconfig", iface, "destroy").Run()
+		newErr := exec.Command("ifconfig", iface, "destroy").Run()
+		if err == nil {
+			err = newErr
+		}
 	}
 	for _, add := range i.additional {
-		add.Close()
+		newErr := add.Close()
+		if err == nil {
+			err = newErr
+		}
 	}
 	return nil
 }
@@ -127,7 +135,7 @@ func (b *bpfReader) Close() error {
 var _ io.ReadCloser = (*bpfReader)(nil)
 
 func checkIfaceNameWithPrefix(name string, prefix string, allowBlank bool) (int, error) {
-	errInvalid := fmt.Errorf("interface name must bew %s[0-9]+", prefix)
+	errInvalid := fmt.Errorf("interface name must be %s[0-9]+", prefix)
 
 	if name == "" {
 		if allowBlank {
@@ -145,6 +153,11 @@ func checkIfaceNameWithPrefix(name string, prefix string, allowBlank bool) (int,
 	}
 
 	return ifIndex, nil
+}
+
+func getPrivateField(iface interface{}, fieldName string) interface{} {
+	field := reflect.ValueOf(iface).Elem().FieldByName(fieldName)
+	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Interface()
 }
 
 func openDevTapSystem(config Config) (ifce *Interface, err error) {
@@ -202,6 +215,9 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 		closer.Close()
 		return nil, err
 	}
+	injectHdl := os.NewFile(uintptr(injectFd), string(ifaceInjectorName[:]))
+	closer.additional = append(closer.additional, injectHdl)
+
 	sockaddr := &sockaddrNdrv{
 		sndFamily: 27,
 		sndLen:    1 + 1 + 16,
@@ -209,30 +225,42 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 	copy(sockaddr.sndName[:], []byte(ifaceInjectorName))
 	_, _, errno := syscall.Syscall(syscall.SYS_BIND, uintptr(injectFd), uintptr(unsafe.Pointer(sockaddr)), uintptr(sockaddr.sndLen))
 	if errno != 0 {
-		syscall.Close(injectFd)
 		closer.Close()
 		return nil, fmt.Errorf("bind error = %d", errno)
 	}
 	_, _, errno = syscall.Syscall(syscall.SYS_CONNECT, uintptr(injectFd), uintptr(unsafe.Pointer(sockaddr)), uintptr(sockaddr.sndLen))
 	if errno != 0 {
-		syscall.Close(injectFd)
 		closer.Close()
 		return nil, fmt.Errorf("connect error = %d", errno)
 	}
 
 	bpfCapture, err := bsdbpf.NewBPFSniffer(
 		ifaceInjectorName,
-		nil,
+		&bsdbpf.Options{
+			ReadBufLen:       32767,
+			Timeout:          nil,
+			Promisc:          true,
+			Immediate:        true,
+			PreserveLinkAddr: true,
+		},
 	)
 	if err != nil {
 		closer.Close()
 		return nil, err
 	}
 
-	closer.additional = append(closer.additional, bpfCapture)
+	// Sadly, this is necessary as otherwise we have no way to set SeeSent
+	bpfFd := getPrivateField(bpfCapture, "fd").(int)
+	var enable int = 0
+	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(bpfFd), uintptr(syscall.BIOCSSEESENT), uintptr(unsafe.Pointer(&enable)))
+	if errno != 0 {
+		bpfCapture.Close()
+		closer.Close()
+		return nil, fmt.Errorf("bpf ioctl error = %d", errno)
+	}
 
 	bpfReader := &bpfReader{bpfCapture: bpfCapture}
-	injectHdl := os.NewFile(uintptr(injectFd), string(ifaceInjectorName[:]))
+	closer.additional = append(closer.additional, bpfReader)
 
 	return &Interface{
 		isTAP: config.DeviceType == TAP,
@@ -241,7 +269,8 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 			ifaceInjectW: injectHdl,
 			closer:       closer,
 		},
-		name: ifaceOSName,
+		secondaryName: ifaceInjectorName,
+		name:          ifaceOSName,
 	}, nil
 }
 
@@ -404,7 +433,6 @@ func (t *tunReadCloser) Read(to []byte) (int, error) {
 }
 
 func (t *tunReadCloser) Write(from []byte) (int, error) {
-
 	if len(from) == 0 {
 		return 0, syscall.EIO
 	}
@@ -455,7 +483,14 @@ var _ io.ReadWriteCloser = (*tapReadCloser)(nil)
 func (t *tapReadCloser) Read(p []byte) (n int, err error) {
 	t.rMu.Lock()
 	defer t.rMu.Unlock()
-	return t.ifaceInjectR.Read(p)
+
+	for {
+		n, err = t.ifaceInjectR.Read(p)
+		if err == syscall.EINTR {
+			continue
+		}
+		return
+	}
 }
 
 func (t *tapReadCloser) Write(p []byte) (n int, err error) {
@@ -465,8 +500,27 @@ func (t *tapReadCloser) Write(p []byte) (n int, err error) {
 }
 
 func (t *tapReadCloser) Close() error {
-	t.ifaceInjectR.Close()
-	t.ifaceInjectW.Close()
-	t.closer.Close()
+	err1 := t.ifaceInjectR.Close()
+	err2 := t.ifaceInjectW.Close()
+	err3 := t.closer.Close()
+	if err1 != nil {
+		return err1
+	}
+	if err2 != nil {
+		return err2
+	}
+	if err3 != nil {
+		return err3
+	}
 	return nil
+}
+
+func (i *Interface) SetMTU(mtu int) error {
+	if i.secondaryName != "" {
+		err := exec.Command("ifconfig", i.secondaryName, "mtu", fmt.Sprintf("%d", mtu)).Run()
+		if err != nil {
+			return err
+		}
+	}
+	return exec.Command("ifconfig", i.name, "mtu", fmt.Sprintf("%d", mtu)).Run()
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os/exec"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -367,15 +368,21 @@ func openDev(config Config) (ifce *Interface, err error) {
 	return &Interface{ReadWriteCloser: &wintunRWC{ad: ad}, name: config.InterfaceName}, nil
 }
 
-func (i *Interface) ForceMTU(mtu int) bool {
+func (i *Interface) SetMTU(mtu int) error {
+	err := exec.Command("netsh", "interface", "ipv4", "set", "subinterface", i.name, fmt.Sprintf("mtu=%d", mtu)).Run()
+	if err != nil {
+		return err
+	}
+
 	wtun, ok := i.ReadWriteCloser.(*wintunRWC)
 	if !ok {
-		return false
+		return errors.New("Cannot cast RWC to wintunRWC")
 	}
 	ad, ok := wtun.ad.(*wintun.NativeTun)
 	if !ok {
-		return false
+		return errors.New("Cannot cast ad to NativeTun")
 	}
 	ad.ForceMTU(mtu)
-	return true
+
+	return nil
 }

@@ -1,7 +1,9 @@
 package water
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 	"unsafe"
@@ -99,4 +101,8 @@ func openDev(config Config) (ifce *Interface, err error) {
 		ReadWriteCloser: os.NewFile(uintptr(fdInt), "tun"),
 		name:            name,
 	}, nil
+}
+
+func (i *Interface) SetMTU(mtu int) error {
+	return exec.Command("ip", "link", "set", "dev", i.name, "mtu", fmt.Sprintf("%d", mtu)).Run()
 }
