@@ -94,14 +94,14 @@ type ifaceCloser struct {
 
 func (i *ifaceCloser) Close() error {
 	var err error
-	for _, iface := range i.ifaces {
-		newErr := exec.Command("ifconfig", iface, "destroy").Run()
+	for _, add := range i.additional {
+		newErr := add.Close()
 		if err == nil {
 			err = newErr
 		}
 	}
-	for _, add := range i.additional {
-		newErr := add.Close()
+	for _, iface := range i.ifaces {
+		newErr := exec.Command("ifconfig", iface, "destroy").Run()
 		if err == nil {
 			err = newErr
 		}
