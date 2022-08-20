@@ -15,8 +15,8 @@ See https://github.com/songgao/packets for functions for parsing various packets
 ## Supported Platforms
 
 * Linux
-* Windows (experimental; APIs might change)
-* macOS (point-to-point TUN only)
+* Windows (TUN support [provided by WinTUN] is experimental)
+* macOS (TAP support is experimental)
 
 ## Installation
 ```
