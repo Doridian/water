@@ -287,41 +287,6 @@ func openTap(config Config) (ifce *Interface, err error) {
 	return nil, errIfceNameNotFound
 }
 
-// https://github.com/WireGuard/wireguard-go/blob/master/tun/tun_windows.go
-const (
-	rateMeasurementGranularity = uint64((time.Second / 2) / time.Nanosecond)
-	spinloopRateThreshold      = 800000000 / 8                                   // 800mbps
-	spinloopDuration           = uint64(time.Millisecond / 80 / time.Nanosecond) // ~1gbit/s
-)
-
-//go:linkname procyield runtime.procyield
-func procyield(cycles uint32)
-
-//go:linkname nanotime runtime.nanotime
-func nanotime() int64
-
-type rateJuggler struct {
-	current       uint64
-	nextByteCount uint64
-	nextStartTime int64
-	changing      int32
-}
-
-func (rate *rateJuggler) update(packetLen uint64) {
-	now := nanotime()
-	total := atomic.AddUint64(&rate.nextByteCount, packetLen)
-	period := uint64(now - atomic.LoadInt64(&rate.nextStartTime))
-	if period >= rateMeasurementGranularity {
-		if !atomic.CompareAndSwapInt32(&rate.changing, 0, 1) {
-			return
-		}
-		atomic.StoreInt64(&rate.nextStartTime, now)
-		atomic.StoreUint64(&rate.current, total*uint64(time.Second/time.Nanosecond)/period)
-		atomic.StoreUint64(&rate.nextByteCount, 0)
-		atomic.StoreInt32(&rate.changing, 0)
-	}
-}
-
 type wintunRWC struct {
 	ad  wintun.Device
 	rmu sync.Mutex
