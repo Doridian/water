@@ -7,9 +7,7 @@ import (
 	"net"
 	"os/exec"
 	"sync"
-	"sync/atomic"
 	"syscall"
-	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows/registry"
