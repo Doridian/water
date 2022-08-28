@@ -339,8 +339,9 @@ func (i *Interface) SetMTU(mtu int) error {
 
 	wtun, ok := i.ReadWriteCloser.(*wintunRWC)
 	if !ok {
-		return errors.New("Cannot cast RWC to wintunRWC")
+		return nil // TAP interface
 	}
+
 	ad, ok := wtun.ad.(*wintun.NativeTun)
 	if !ok {
 		return errors.New("Cannot cast ad to NativeTun")
