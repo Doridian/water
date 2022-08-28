@@ -328,7 +328,14 @@ func openDev(config Config) (ifce *Interface, err error) {
 	if err != nil {
 		return
 	}
-	return &Interface{ReadWriteCloser: &wintunRWC{ad: ad}, name: config.InterfaceName}, nil
+
+	var name string
+	name, err = ad.Name()
+	if err != nil {
+		return
+	}
+
+	return &Interface{ReadWriteCloser: &wintunRWC{ad: ad}, name: name}, nil
 }
 
 func (i *Interface) SetMTU(mtu int) error {
