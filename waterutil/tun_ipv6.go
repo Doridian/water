@@ -7,7 +7,7 @@ func IPv6Source(packet []byte) net.IP {
 }
 
 func SetIPv6Source(packet []byte, source net.IP) {
-	copy(packet[12:16], source.To4())
+	copy(packet[8:24], source.To16())
 }
 
 func IPv6Destination(packet []byte) net.IP {
@@ -15,5 +15,5 @@ func IPv6Destination(packet []byte) net.IP {
 }
 
 func SetIPv6Destination(packet []byte, dest net.IP) {
-	copy(packet[16:20], dest.To4())
+	copy(packet[24:40], dest.To16())
 }
