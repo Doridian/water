@@ -46,14 +46,14 @@ readFrame:
 				if ethertype != waterutil.IPv4 {
 					continue readFrame
 				}
-				if expectBroadcast && !waterutil.IsBroadcast(waterutil.MACDestination(buffer)) {
+				if expectBroadcast && !waterutil.IsMACBroadcast(waterutil.MACDestination(buffer)) {
 					continue readFrame
 				}
 				packet = waterutil.MACPayload(buffer)
 			} else {
 				packet = buffer
 			}
-			if !waterutil.IsIPv4(packet) {
+			if waterutil.IPVersion(packet) != 4 {
 				continue readFrame
 			}
 			if !waterutil.IPv4Source(packet).Equal(expectSrc) {
