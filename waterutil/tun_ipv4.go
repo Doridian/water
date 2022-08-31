@@ -30,7 +30,7 @@ func IPv4Protocol(packet []byte) IPProtocol {
 }
 
 func IPv4Source(packet []byte) net.IP {
-	return net.IPv4(packet[12], packet[13], packet[14], packet[15])
+	return net.IP(packet[12:16])
 }
 
 func SetIPv4Source(packet []byte, source net.IP) {
@@ -38,7 +38,7 @@ func SetIPv4Source(packet []byte, source net.IP) {
 }
 
 func IPv4Destination(packet []byte) net.IP {
-	return net.IPv4(packet[16], packet[17], packet[18], packet[19])
+	return net.IP(packet[16:20])
 }
 
 func SetIPv4Destination(packet []byte, dest net.IP) {
