@@ -1,4 +1,8 @@
 water.test
 water.test.exe
 .vscode
+/tmp
+*.msi
+*.dll
+*.zip
 
