@@ -1,4 +1,5 @@
 $OpenVPNMSI = "https://swupdate.openvpn.org/community/releases/OpenVPN-2.5.7-I602-amd64.msi"
+$WSTUNZIP = "https://www.wintun.net/builds/wintun-0.14.1.zip"
 
 $global:ErrorActionPreference = "Stop"
 
@@ -11,16 +12,13 @@ function DownloadFile([Parameter(Mandatory=$true)]$Link, [Parameter(Mandatory=$t
     @{$true = Write-Host "[OK]"}[$?]
 }
 
-function MakeTAP([Parameter(Mandatory=$true)]$Name)
-{
-    Write-Host "Creating TAP $Name..."
-    Start-Process "C:\Program Files\OpenVPN\bin\tapctl.exe" -ArgumentList "create --name `"$Name`"" -Wait
-    @{$true = Write-Host "[OK]"}[$?]
-
-}
-
 DownloadFile "$OpenVPNMSI" "openvpn.msi"
+DownloadFile "$WSTUNZIP" "wstun.zip"
 
 Write-Host "Installing OpenVPN..."
-Start-Process msiexec -ArgumentList "/i `"$WorkingDir\openvpn.msi`" ADDLOCAL=Drivers,Drivers.TAPWindows6,Drivers.Wintun,OpenVPN /quiet /norestart" -Wait
+Start-Process msiexec -ArgumentList "/i `"$WorkingDir\openvpn.msi`" ADDLOCAL=Drivers,Drivers.TAPWindows6,OpenVPN /quiet /norestart" -Wait
 @{$true = Write-Host "[OK]"}[$?]
+
+Expand-Archive -LiteralPath "$WorkingDir\wstun.zip" -DestinationPath "$WorkingDir\tmp"
+
+Copy-Item -Path "$WorkingDir\tmp\wstun\bin\amd64\wintun.dll" -Destination "$WorkingDir\wintun.dll"

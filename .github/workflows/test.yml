@@ -26,8 +26,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Install OpenVPN TAP
-        run: .\.github\InstallTAP.ps1
+      - name: Install OpenVPN TAP and Wintun
+        run: .\.github\InstallTUNTAP.ps1
       - uses: actions/setup-go@v3
         with:
           go-version-file: 'go.mod'
