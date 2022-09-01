@@ -92,15 +92,15 @@ type ifaceCloser struct {
 	additional []io.Closer
 }
 
-func (i *ifaceCloser) Close() error {
+func (c *ifaceCloser) Close() error {
 	var err error
-	for _, add := range i.additional {
+	for _, add := range c.additional {
 		newErr := add.Close()
 		if err == nil {
 			err = newErr
 		}
 	}
-	for _, iface := range i.ifaces {
+	for _, iface := range c.ifaces {
 		newErr := exec.Command("ifconfig", iface, "destroy").Run()
 		if err == nil {
 			err = newErr
@@ -546,17 +546,17 @@ func EnsureMTUAdjust(mtu uint32) error {
 	return err
 }
 
-func (i *Interface) SetMTU(mtu int) error {
-	if i.secondaryName != "" {
+func (ifce *Interface) SetMTU(mtu int) error {
+	if ifce.secondaryName != "" {
 		err := EnsureMTUAdjust(uint32(mtu))
 		if err != nil {
 			return err
 		}
 
-		err = exec.Command("ifconfig", i.secondaryName, "mtu", fmt.Sprintf("%d", mtu)).Run()
+		err = exec.Command("ifconfig", ifce.secondaryName, "mtu", fmt.Sprintf("%d", mtu)).Run()
 		if err != nil {
 			return err
 		}
 	}
-	return exec.Command("ifconfig", i.name, "mtu", fmt.Sprintf("%d", mtu)).Run()
+	return exec.Command("ifconfig", ifce.name, "mtu", fmt.Sprintf("%d", mtu)).Run()
 }

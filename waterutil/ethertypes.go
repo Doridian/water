@@ -1,3 +1,4 @@
+//lint:file-ignore ST1003 These constants are from external sources
 package waterutil
 
 type Ethertype [2]byte

@@ -338,13 +338,13 @@ func openDev(config Config) (ifce *Interface, err error) {
 	return &Interface{ReadWriteCloser: &wintunRWC{ad: ad}, name: name}, nil
 }
 
-func (i *Interface) SetMTU(mtu int) error {
-	err := exec.Command("netsh", "interface", "ipv4", "set", "subinterface", i.name, fmt.Sprintf("mtu=%d", mtu)).Run()
+func (ifce *Interface) SetMTU(mtu int) error {
+	err := exec.Command("netsh", "interface", "ipv4", "set", "subinterface", ifce.name, fmt.Sprintf("mtu=%d", mtu)).Run()
 	if err != nil {
 		return err
 	}
 
-	wtun, ok := i.ReadWriteCloser.(*wintunRWC)
+	wtun, ok := ifce.ReadWriteCloser.(*wintunRWC)
 	if !ok {
 		return nil // TAP interface
 	}

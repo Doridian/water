@@ -83,14 +83,14 @@ func TestCloseUnblockPendingRead(t *testing.T) {
 
 	c := make(chan struct{})
 	go func() {
-		ifce.Read(make([]byte, 1<<16))
+		_, _ = ifce.Read(make([]byte, 1<<16))
 		close(c)
 	}()
 
 	// make sure ifce.Close() happens after ifce.Read() blocks
 	time.Sleep(1 * time.Second)
 
-	ifce.Close()
+	_ = ifce.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
