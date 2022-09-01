@@ -20,9 +20,9 @@ Start-Process msiexec -ArgumentList "/i `"$WorkingDir\openvpn.msi`" ADDLOCAL=Dri
 @{$true = Write-Host "[OK]"}[$?]
 
 Write-Host "Extracting wintun archive..."
-Expand-Archive -LiteralPath "$WorkingDir\wintun.zip" -DestinationPath "$WorkingDir\tmp"
+Expand-Archive -LiteralPath "$WorkingDir\wintun.zip" -DestinationPath "$WorkingDir\tmp" -Force
 @{$true = Write-Host "[OK]"}[$?]
 
 Write-Host "Copying wintun.dll..."
-Copy-Item -Path "$WorkingDir\tmp\WINTUN\bin\amd64\wintun.dll" -Destination "$WorkingDir\wintun.dll"
+Copy-Item -Path "$WorkingDir\tmp\WINTUN\bin\amd64\wintun.dll" -Destination "$WorkingDir\wintun.dll" -Force
 @{$true = Write-Host "[OK]"}[$?]
