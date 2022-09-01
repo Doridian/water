@@ -24,5 +24,5 @@ Expand-Archive -LiteralPath "$WorkingDir\wintun.zip" -DestinationPath "$WorkingD
 @{$true = Write-Host "[OK]"}[$?]
 
 Write-Host "Copying wintun.dll..."
-Copy-Item -Path "$WorkingDir\tmp\WINTUN\bin\amd64\wintun.dll" -Destination "$WorkingDir\wintun.dll" -Force
+Copy-Item -Path "$WorkingDir\tmp\WINTUN\bin\amd64\wintun.dll" -Destination "$env:SystemRoot\System32\wintun.dll" -Force
 @{$true = Write-Host "[OK]"}[$?]
