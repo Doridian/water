@@ -1,5 +1,5 @@
 $OpenVPNMSI = "https://swupdate.openvpn.org/community/releases/OpenVPN-2.5.7-I602-amd64.msi"
-$WSTUNZIP = "https://www.wintun.net/builds/wintun-0.14.1.zip"
+$WINTUNZIP = "https://www.wintun.net/builds/wintun-0.14.1.zip"
 
 $global:ErrorActionPreference = "Stop"
 
@@ -13,12 +13,16 @@ function DownloadFile([Parameter(Mandatory=$true)]$Link, [Parameter(Mandatory=$t
 }
 
 DownloadFile "$OpenVPNMSI" "openvpn.msi"
-DownloadFile "$WSTUNZIP" "wstun.zip"
+DownloadFile "$WINTUNZIP" "wintun.zip"
 
 Write-Host "Installing OpenVPN..."
 Start-Process msiexec -ArgumentList "/i `"$WorkingDir\openvpn.msi`" ADDLOCAL=Drivers,Drivers.TAPWindows6,OpenVPN /quiet /norestart" -Wait
 @{$true = Write-Host "[OK]"}[$?]
 
-Expand-Archive -LiteralPath "$WorkingDir\wstun.zip" -DestinationPath "$WorkingDir\tmp"
+Write-Host "Extracting wintun archive..."
+Expand-Archive -LiteralPath "$WorkingDir\wintun.zip" -DestinationPath "$WorkingDir\tmp"
+@{$true = Write-Host "[OK]"}[$?]
 
-Copy-Item -Path "$WorkingDir\tmp\wstun\bin\amd64\wintun.dll" -Destination "$WorkingDir\wintun.dll"
+Write-Host "Copying wintun.dll..."
+Copy-Item -Path "$WorkingDir\tmp\WINTUN\bin\amd64\wintun.dll" -Destination "$WorkingDir\wintun.dll"
+@{$true = Write-Host "[OK]"}[$?]
