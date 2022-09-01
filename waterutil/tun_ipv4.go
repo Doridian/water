@@ -50,7 +50,6 @@ func IPv4Payload(packet []byte) []byte {
 	return packet[ihl*4:]
 }
 
-// For TCP/UDP
 func IPv4SourcePort(packet []byte) uint16 {
 	payload := IPv4Payload(packet)
 	return (uint16(payload[0]) << 8) | uint16(payload[1])

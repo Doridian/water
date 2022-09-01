@@ -21,6 +21,6 @@ func FindLowestNetworkInterfaceByPrefix(prefix string) string {
 		if !NetworkInterfaceExists(ifaceName) {
 			return ifaceName
 		}
-		i += 1
+		i++
 	}
 }
