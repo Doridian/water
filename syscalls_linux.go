@@ -103,6 +103,6 @@ func openDev(config Config) (ifce *Interface, err error) {
 	}, nil
 }
 
-func (i *Interface) SetMTU(mtu int) error {
-	return exec.Command("ip", "link", "set", "dev", i.name, "mtu", fmt.Sprintf("%d", mtu)).Run() // #nosec G204 -- This is exactly what it needs to be
+func (ifce *Interface) SetMTU(mtu int) error {
+	return exec.Command("ip", "link", "set", "dev", ifce.name, "mtu", fmt.Sprintf("%d", mtu)).Run() // #nosec G204 -- This is exactly what it needs to be
 }
