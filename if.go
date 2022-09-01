@@ -14,7 +14,7 @@ type Interface struct {
 	isTAP bool
 	io.ReadWriteCloser
 	name          string
-	secondaryName string
+	secondaryName string //lint:ignore U1000 This is unused on some operating systems
 }
 
 // DeviceType is the type for specifying device types.

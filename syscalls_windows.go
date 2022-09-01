@@ -344,7 +344,7 @@ func (ifce *Interface) SetMTU(mtu int) error {
 		return err
 	}
 
-	wtun, ok := i.ReadWriteCloser.(*wintunRWC)
+	wtun, ok := ifce.ReadWriteCloser.(*wintunRWC)
 	if !ok {
 		return nil // TAP interface
 	}
