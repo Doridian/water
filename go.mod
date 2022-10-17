@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/google/gopacket v1.1.19
-	golang.org/x/sys v0.0.0-20221013171732-95e765b1cc43
+	golang.org/x/sys v0.1.0
 	golang.zx2c4.com/wireguard v0.0.0-20220703234212-c31a7b1ab478
 )
 
