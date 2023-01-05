@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/google/gopacket/bsdbpf"
+	"github.com/Doridian/gopacket/bsdbpf"
 )
 
 const appleUTUNCtl = "com.apple.net.utun_control"

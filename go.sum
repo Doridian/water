@@ -1,5 +1,5 @@
-github.com/Doridian/gopacket v1.1.19 h1:BI1RgJ+3m+VnBjWWSxLqnOWaoKSw3x8jSWxzcMi187E=
-github.com/Doridian/gopacket v1.1.19/go.mod h1:E87iaOYopHawbSWHXDGMgIHcsbXTlTZ7+LgQhuKfIno=
+github.com/Doridian/gopacket v1.2.0 h1:/2Iji4fRpL+iFArv1+EqK0Ay097hap2cu0hmUsqrjXo=
+github.com/Doridian/gopacket v1.2.0/go.mod h1:16EwY3JsEHp3TFeSRcmSC9yOdG8GkFAWImZaL13kOGc=
 github.com/vishvananda/netlink v1.1.0/go.mod h1:cTgwzPIzzgDAYoQrMm0EdrjRUBkTqKYppBueQtXaqoE=
 github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df/go.mod h1:JP3t17pCcGlemwknint6hfoeCVQrEMVwxRLRjXpq+BU=
 github.com/vishvananda/netns v0.0.1/go.mod h1:DD4vA1DwXk04H54A1oHXtwZmA0grkVMdPxx/VGLCah0=
