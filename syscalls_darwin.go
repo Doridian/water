@@ -236,7 +236,7 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 			Promisc:          true,
 			Immediate:        true,
 			PreserveLinkAddr: true,
-			SeeSent:          true,
+			SeeSent:          false,
 		},
 	)
 	if err != nil {
