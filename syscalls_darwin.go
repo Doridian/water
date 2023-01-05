@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 	"os/exec"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -155,11 +154,6 @@ func checkIfaceNameWithPrefix(name string, prefix string, allowBlank bool) (int,
 	return ifIndex, nil
 }
 
-func getPrivateField(iface interface{}, fieldName string) interface{} {
-	field := reflect.ValueOf(iface).Elem().FieldByName(fieldName)
-	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Interface()
-}
-
 func openDevTapSystem(config Config) (ifce *Interface, err error) {
 	_, err = checkIfaceNameWithPrefix(config.Name, "feth", true)
 	if err != nil {
@@ -242,21 +236,12 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 			Promisc:          true,
 			Immediate:        true,
 			PreserveLinkAddr: true,
+			SeeSent:          true,
 		},
 	)
 	if err != nil {
 		closer.Close()
 		return nil, err
-	}
-
-	// Sadly, this is necessary as otherwise we have no way to set SeeSent
-	bpfFd := getPrivateField(bpfCapture, "fd").(int)
-	var enable int = 0
-	_, _, errno = syscall.Syscall(syscall.SYS_IOCTL, uintptr(bpfFd), uintptr(syscall.BIOCSSEESENT), uintptr(unsafe.Pointer(&enable)))
-	if errno != 0 {
-		bpfCapture.Close()
-		closer.Close()
-		return nil, fmt.Errorf("bpf ioctl error = %d", errno)
 	}
 
 	bpfReader := &bpfReader{bpfCapture: bpfCapture}

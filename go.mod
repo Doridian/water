@@ -9,6 +9,8 @@ require (
 )
 
 require (
-	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
+	golang.org/x/net v0.5.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
 )
+
+replace github.com/google/gopacket v1.1.19 => github.com/Doridian/gopacket v1.1.19
