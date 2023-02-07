@@ -15,7 +15,7 @@ func startPing(t *testing.T, dst net.IP, _ bool) {
 }
 
 func setupIfce(t *testing.T, ipNet net.IPNet, dev string) {
-	sargs := fmt.Sprintf("interface ip set address name=REPLACE_ME source=static addr=REPLACE_ME mask=REPLACE_ME gateway=none")
+	sargs := "interface ip set address name=REPLACE_ME source=static addr=REPLACE_ME mask=REPLACE_ME gateway=none"
 	args := strings.Split(sargs, " ")
 	args[4] = fmt.Sprintf("name=%s", dev)
 	args[6] = fmt.Sprintf("addr=%s", ipNet.IP)
