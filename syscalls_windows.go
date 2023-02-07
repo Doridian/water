@@ -52,7 +52,9 @@ func init() {
 	if err != nil {
 		panic("LoadLibrary " + err.Error())
 	}
-	defer syscall.FreeLibrary(k32)
+	defer func() {
+		_ = syscall.FreeLibrary(k32)
+	}()
 
 	nCreateEvent = getProcAddr(k32, "CreateEventW")
 	nResetEvent = getProcAddr(k32, "ResetEvent")
