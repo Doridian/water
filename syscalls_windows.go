@@ -70,7 +70,7 @@ func getProcAddr(lib syscall.Handle, name string) uintptr {
 }
 
 func resetEvent(h syscall.Handle) error {
-	r, _, err := syscall.SyscallN(nResetEvent, 1, uintptr(h), 0, 0)
+	r, _, err := syscall.SyscallN(nResetEvent, uintptr(h), 0, 0)
 	if r == 0 {
 		return err
 	}
@@ -79,7 +79,7 @@ func resetEvent(h syscall.Handle) error {
 
 func getOverlappedResult(h syscall.Handle, overlapped *syscall.Overlapped) (int, error) {
 	var n int
-	r, _, err := syscall.SyscallN(nGetOverlappedResult, 4,
+	r, _, err := syscall.SyscallN(nGetOverlappedResult,
 		uintptr(h),
 		uintptr(unsafe.Pointer(overlapped)),
 		uintptr(unsafe.Pointer(&n)), 1, 0, 0)
@@ -92,7 +92,7 @@ func getOverlappedResult(h syscall.Handle, overlapped *syscall.Overlapped) (int,
 
 func newOverlapped() (*syscall.Overlapped, error) {
 	var overlapped syscall.Overlapped
-	r, _, err := syscall.SyscallN(nCreateEvent, 4, 0, 1, 0, 0, 0, 0)
+	r, _, err := syscall.SyscallN(nCreateEvent, 0, 1, 0, 0, 0, 0)
 	if r == 0 {
 		return nil, err
 	}
