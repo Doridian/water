@@ -52,9 +52,7 @@ func init() {
 	if err != nil {
 		panic("LoadLibrary " + err.Error())
 	}
-	defer func() {
-		_ = syscall.FreeLibrary(k32)
-	}()
+	defer syscall.FreeLibrary(k32)
 
 	nCreateEvent = getProcAddr(k32, "CreateEventW")
 	nResetEvent = getProcAddr(k32, "ResetEvent")
@@ -70,7 +68,7 @@ func getProcAddr(lib syscall.Handle, name string) uintptr {
 }
 
 func resetEvent(h syscall.Handle) error {
-	r, _, err := syscall.SyscallN(nResetEvent, uintptr(h), 0, 0)
+	r, _, err := syscall.SyscallN(nResetEvent, uintptr(h))
 	if r == 0 {
 		return err
 	}
@@ -82,7 +80,7 @@ func getOverlappedResult(h syscall.Handle, overlapped *syscall.Overlapped) (int,
 	r, _, err := syscall.SyscallN(nGetOverlappedResult,
 		uintptr(h),
 		uintptr(unsafe.Pointer(overlapped)),
-		uintptr(unsafe.Pointer(&n)), 1, 0, 0)
+		uintptr(unsafe.Pointer(&n)), 1)
 	if r == 0 {
 		return n, err
 	}
@@ -92,7 +90,7 @@ func getOverlappedResult(h syscall.Handle, overlapped *syscall.Overlapped) (int,
 
 func newOverlapped() (*syscall.Overlapped, error) {
 	var overlapped syscall.Overlapped
-	r, _, err := syscall.SyscallN(nCreateEvent, 0, 1, 0, 0, 0, 0)
+	r, _, err := syscall.SyscallN(nCreateEvent, 0, 1, 0, 0)
 	if r == 0 {
 		return nil, err
 	}
