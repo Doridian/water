@@ -32,3 +32,5 @@ jobs:
           cache: true
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
+        with:
+          args: --timeout 5m0s
