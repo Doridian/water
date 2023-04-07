@@ -301,14 +301,15 @@ func (w *wintunRWC) Write(b []byte) (int, error) {
 	w.wmu.Lock()
 	defer w.wmu.Unlock()
 
-	return w.ad.Write(b, 0)
+	return w.ad.Write([][]byte{b}, 0)
 }
 
 func (w *wintunRWC) Read(b []byte) (int, error) {
 	w.rmu.Lock()
 	defer w.rmu.Unlock()
 
-	return w.ad.Read(b, 0)
+	ct := [][]byte{b}
+	return w.ad.Read(ct, []int{len(b)}, 0)
 }
 
 // openDev find and open an interface.
