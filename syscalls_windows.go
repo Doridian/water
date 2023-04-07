@@ -301,14 +301,31 @@ func (w *wintunRWC) Write(b []byte) (int, error) {
 	w.wmu.Lock()
 	defer w.wmu.Unlock()
 
-	return w.ad.Write([][]byte{b}, 0)
+	res, err := w.ad.Write([][]byte{b}, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	if res <= 0 {
+		return res, nil
+	}
+	return len(b), nil
 }
 
 func (w *wintunRWC) Read(b []byte) (int, error) {
 	w.rmu.Lock()
 	defer w.rmu.Unlock()
 
-	return w.ad.Read([][]byte{b}, []int{len(b)}, 0)
+	lens := []int{0}
+	res, err := w.ad.Read([][]byte{b}, lens, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	if res <= 0 {
+		return res, nil
+	}
+	return lens[0], nil
 }
 
 // openDev find and open an interface.
@@ -353,7 +370,7 @@ func (ifce *Interface) SetMTU(mtu int) error {
 
 	ad, ok := wtun.ad.(*wintun.NativeTun)
 	if !ok {
-		return errors.New("Cannot cast ad to NativeTun")
+		return errors.New("cannot cast ad to NativeTun")
 	}
 	ad.ForceMTU(mtu)
 
