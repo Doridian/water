@@ -308,8 +308,7 @@ func (w *wintunRWC) Read(b []byte) (int, error) {
 	w.rmu.Lock()
 	defer w.rmu.Unlock()
 
-	ct := [][]byte{b}
-	return w.ad.Read(ct, []int{len(b)}, 0)
+	return w.ad.Read([][]byte{b}, []int{len(b)}, 0)
 }
 
 // openDev find and open an interface.
