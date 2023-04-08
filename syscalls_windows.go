@@ -297,25 +297,21 @@ func (w *wintunRWC) Close() error {
 	return w.ad.Close()
 }
 
-func (w *wintunRWC) Write(b []byte) (int, error) {
-	w.wmu.Lock()
-	defer w.wmu.Unlock()
-
-	res, err := w.ad.Write([][]byte{b}, 0)
-	if err != nil {
-		return 0, err
-	}
-
-	if res <= 0 {
-		return res, nil
-	}
-	return len(b), nil
-}
-
-func (w *wintunRWC) Read(b []byte) (int, error) {
+func (w *wintunRWC) ReadVector(bufs [][]byte, sizes []int) (int, error) {
 	w.rmu.Lock()
 	defer w.rmu.Unlock()
 
+	return w.ad.Read(bufs, sizes, 0)
+}
+
+func (w *wintunRWC) WriteVector(bufs [][]byte) (int, error) {
+	w.wmu.Lock()
+	defer w.wmu.Unlock()
+
+	return w.ad.Write(bufs, 0)
+}
+
+func (w *wintunRWC) Read(b []byte) (int, error) {
 	lens := []int{0}
 	res, err := w.ad.Read([][]byte{b}, lens, 0)
 	if err != nil {
@@ -326,6 +322,22 @@ func (w *wintunRWC) Read(b []byte) (int, error) {
 		return res, nil
 	}
 	return lens[0], nil
+}
+
+func (w *wintunRWC) Write(b []byte) (int, error) {
+	res, err := w.WriteVector([][]byte{b})
+	if err != nil {
+		return 0, err
+	}
+
+	if res <= 0 {
+		return res, nil
+	}
+	return len(b), nil
+}
+
+func (w *wintunRWC) IsVectorNative() bool {
+	return true
 }
 
 // openDev find and open an interface.
@@ -354,7 +366,8 @@ func openDev(config Config) (ifce *Interface, err error) {
 		return
 	}
 
-	return &Interface{ReadWriteCloser: &wintunRWC{ad: ad}, name: name}, nil
+	wt := &wintunRWC{ad: ad}
+	return &Interface{VectorReadWrite: wt, ReadWriteCloser: wt, name: name}, nil
 }
 
 func (ifce *Interface) SetMTU(mtu int) error {

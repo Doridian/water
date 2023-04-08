@@ -2,8 +2,15 @@ package water
 
 import (
 	"errors"
+	"fmt"
 	"io"
 )
+
+type VectorReadWrite interface {
+	ReadVector(bufs [][]byte, sizes []int) (n int, err error)
+	WriteVector(bufs [][]byte) (n int, err error)
+	IsVectorNative() bool
+}
 
 // Interface is a TUN/TAP interface.
 //
@@ -12,6 +19,7 @@ import (
 // Kernel document about MultiQueue: https://www.kernel.org/doc/Documentation/networking/tuntap.txt
 type Interface struct {
 	isTAP bool
+	VectorReadWrite
 	io.ReadWriteCloser
 	name          string
 	secondaryName string //lint:ignore U1000 This is unused on some operating systems
@@ -59,7 +67,14 @@ func New(config Config) (ifce *Interface, err error) {
 	}
 	switch config.DeviceType {
 	case TUN, TAP:
-		return openDev(config)
+		dev, err := openDev(config)
+		if err != nil {
+			return nil, err
+		}
+		if dev.VectorReadWrite == nil {
+			dev.VectorReadWrite = &ReadWriteVectorProxy{ReadWriteCloser: dev.ReadWriteCloser}
+		}
+		return dev, nil
 	default:
 		return nil, errors.New("unknown device type")
 	}
@@ -78,4 +93,35 @@ func (ifce *Interface) IsTAP() bool {
 // Name returns the interface name of ifce, e.g. tun0, tap1, tun0, etc..
 func (ifce *Interface) Name() string {
 	return ifce.name
+}
+
+type ReadWriteVectorProxy struct {
+	io.ReadWriteCloser
+}
+
+func (p *ReadWriteVectorProxy) ReadVector(bufs [][]byte, sizes []int) (n int, err error) {
+	for i, buf := range bufs {
+		sizes[i], err = p.ReadWriteCloser.Read(buf)
+		if err != nil {
+			return i, err
+		}
+	}
+	return len(bufs), nil
+}
+
+func (p *ReadWriteVectorProxy) WriteVector(bufs [][]byte) (n int, err error) {
+	for i, buf := range bufs {
+		n, err = p.ReadWriteCloser.Write(buf)
+		if err != nil {
+			return i, err
+		}
+		if n != len(buf) {
+			return i, fmt.Errorf("expected to write %d but wrote %d", len(buf), n)
+		}
+	}
+	return len(bufs), nil
+}
+
+func (p *ReadWriteVectorProxy) IsVectorNative() bool {
+	return false
 }
