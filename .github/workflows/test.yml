@@ -16,8 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install OpenVPN TAP and Wintun
-        run: .\.github\InstallTUNTAP.ps1
+      - name: Install Windows tools
+        run: |
+          .\.github\InstallShims.ps1
+          .\.github\InstallDrivers.ps1
         if: matrix.os == 'windows-latest'
 
       - uses: actions/setup-go@v4
@@ -31,7 +33,3 @@ jobs:
 
       - name: Test
         run: sudo go test ./...
-        if: matrix.os != 'windows-latest'
-      - name: Test
-        run: go test ./...
-        if: matrix.os == 'windows-latest'
