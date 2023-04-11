@@ -8,46 +8,30 @@ on:
 name: Test
 
 jobs:
-  test-linux:
-    runs-on: ubuntu-latest
+  test:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version-file: 'go.mod'
-          check-latest: true
-          cache: true
-      - name: Build
-        run: go build ./...
-      - name: Test
-        run: sudo go test ./...
 
-  test-windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
       - name: Install OpenVPN TAP and Wintun
         run: .\.github\InstallTUNTAP.ps1
-      - uses: actions/setup-go@v4
-        with:
-          go-version-file: 'go.mod'
-          check-latest: true
-          cache: true
-      - name: Build
-        run: go build ./...
-      - name: Test
-        run: go test ./...
+        if: matrix.os == 'windows-latest'
 
-  test-darwin:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
       - uses: actions/setup-go@v4
         with:
           go-version-file: 'go.mod'
           check-latest: true
           cache: true
+
       - name: Build
         run: go build ./...
+
       - name: Test
         run: sudo go test ./...
+        if: matrix.os != 'windows-latest'
+      - name: Test
+        run: go test ./...
+        if: matrix.os == 'windows-latest'
