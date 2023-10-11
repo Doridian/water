@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/Doridian/gopacket v1.3.4
 	golang.org/x/sys v0.13.0
-	golang.zx2c4.com/wireguard v0.0.0-20230704135630-469159ecf7d1
+	golang.zx2c4.com/wireguard v0.0.0-20231010133717-42ec952eadc2
 )
 
 require (
