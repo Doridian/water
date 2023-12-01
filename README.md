@@ -1,3 +1,12 @@
+# This is a fork
+
+This is a fork of https://github.com/songgao/water which seems unmaintained since 2020.
+
+It adds some bugfixes as well as the following two features:
+
+* TUN support on Windows (powered by WinTUN from the Wireguard project)
+* TAP support on macOS using `feth` interfaces (built into the OS)
+
 # water
 
 `water` is a native Go library for [TUN/TAP](http://en.wikipedia.org/wiki/TUN/TAP) interfaces.
