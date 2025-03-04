@@ -1,6 +1,8 @@
 module github.com/Doridian/water
 
-go 1.19
+go 1.23.0
+
+toolchain go1.24.0
 
 require (
 	github.com/Doridian/gopacket v1.3.4
@@ -9,6 +11,6 @@ require (
 )
 
 require (
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 )
