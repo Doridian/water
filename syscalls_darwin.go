@@ -219,12 +219,12 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 	copy(sockaddr.sndName[:], []byte(ifaceInjectorName))
 	_, _, errno := syscall.Syscall(syscall.SYS_BIND, uintptr(injectFd), uintptr(unsafe.Pointer(sockaddr)), uintptr(sockaddr.sndLen))
 	if errno != 0 {
-		closer.Close()
+		_ = closer.Close()
 		return nil, fmt.Errorf("bind error = %d", errno)
 	}
 	_, _, errno = syscall.Syscall(syscall.SYS_CONNECT, uintptr(injectFd), uintptr(unsafe.Pointer(sockaddr)), uintptr(sockaddr.sndLen))
 	if errno != 0 {
-		closer.Close()
+		_ = closer.Close()
 		return nil, fmt.Errorf("connect error = %d", errno)
 	}
 
@@ -240,7 +240,7 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 		},
 	)
 	if err != nil {
-		closer.Close()
+		_ = closer.Close()
 		return nil, err
 	}
 
