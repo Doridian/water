@@ -101,7 +101,7 @@ type ReadWriteVectorProxy struct {
 
 func (p *ReadWriteVectorProxy) ReadVector(bufs [][]byte, sizes []int) (n int, err error) {
 	for i, buf := range bufs {
-		sizes[i], err = p.ReadWriteCloser.Read(buf)
+		sizes[i], err = p.Read(buf)
 		if err != nil {
 			return i, err
 		}
@@ -111,7 +111,7 @@ func (p *ReadWriteVectorProxy) ReadVector(bufs [][]byte, sizes []int) (n int, er
 
 func (p *ReadWriteVectorProxy) WriteVector(bufs [][]byte) (n int, err error) {
 	for i, buf := range bufs {
-		n, err = p.ReadWriteCloser.Write(buf)
+		n, err = p.Write(buf)
 		if err != nil {
 			return i, err
 		}

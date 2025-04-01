@@ -182,7 +182,7 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 	}
 	err = exec.Command("ifconfig", ifaceOSName, "create").Run()
 	if err != nil {
-		closer.Close()
+		_ = closer.Close()
 		return nil, err
 	}
 	closer.ifaces = append(closer.ifaces, ifaceOSName)
@@ -192,21 +192,21 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 	}
 	err = exec.Command("ifconfig", ifaceInjectorName, "create").Run()
 	if err != nil {
-		closer.Close()
+		_ = closer.Close()
 		return nil, err
 	}
 	closer.ifaces = append(closer.ifaces, ifaceInjectorName)
 
 	err = exec.Command("ifconfig", ifaceOSName, "peer", ifaceInjectorName).Run()
 	if err != nil {
-		closer.Close()
+		_ = closer.Close()
 		return nil, err
 	}
 
 	// AF_NDRV = 27
 	injectFd, err := syscall.Socket(27, syscall.SOCK_RAW, 0)
 	if err != nil {
-		closer.Close()
+		_ = closer.Close()
 		return nil, err
 	}
 	injectHdl := os.NewFile(uintptr(injectFd), string(ifaceInjectorName[:]))
@@ -219,12 +219,12 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 	copy(sockaddr.sndName[:], []byte(ifaceInjectorName))
 	_, _, errno := syscall.Syscall(syscall.SYS_BIND, uintptr(injectFd), uintptr(unsafe.Pointer(sockaddr)), uintptr(sockaddr.sndLen))
 	if errno != 0 {
-		closer.Close()
+		_ = closer.Close()
 		return nil, fmt.Errorf("bind error = %d", errno)
 	}
 	_, _, errno = syscall.Syscall(syscall.SYS_CONNECT, uintptr(injectFd), uintptr(unsafe.Pointer(sockaddr)), uintptr(sockaddr.sndLen))
 	if errno != 0 {
-		closer.Close()
+		_ = closer.Close()
 		return nil, fmt.Errorf("connect error = %d", errno)
 	}
 
@@ -240,7 +240,7 @@ func openDevTapSystem(config Config) (ifce *Interface, err error) {
 		},
 	)
 	if err != nil {
-		closer.Close()
+		_ = closer.Close()
 		return nil, err
 	}
 
@@ -380,7 +380,7 @@ func openDevTunTapOSX(config Config) (ifce *Interface, err error) {
 		err = errno
 		return nil, fmt.Errorf("error in syscall.Syscall(syscall.SYS_IOCTL, ...): %v", err)
 	}
-	syscall.Close(socketFD)
+	_ = syscall.Close(socketFD)
 
 	return &Interface{
 		isTAP:           config.DeviceType == TAP,
@@ -432,11 +432,12 @@ func (t *tunReadCloser) Write(from []byte) (int, error) {
 
 	// Determine the IP Family for the NULL L2 Header
 	ipVer := from[0] >> 4
-	if ipVer == 4 {
+	switch ipVer {
+	case 4:
 		t.wBuf[3] = syscall.AF_INET
-	} else if ipVer == 6 {
+	case 6:
 		t.wBuf[3] = syscall.AF_INET6
-	} else {
+	default:
 		return 0, errors.New("unable to determine IP version from packet")
 	}
 
