@@ -37,7 +37,7 @@ func setupFd(config Config, fd uintptr) (name string, err error) {
 	} else {
 		flags |= cIFFTAP
 	}
-	if config.PlatformSpecificParams.MultiQueue {
+	if config.MultiQueue {
 		flags |= cIFFMULTIQUEUE
 	}
 
