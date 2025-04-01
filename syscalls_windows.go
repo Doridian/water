@@ -156,7 +156,9 @@ func getdeviceid(componentID string, interfaceName string) (deviceid string, err
 	if err != nil {
 		return "", errors.New("Failed to open the adapter registry, TAP driver may be not installed" + err.Error())
 	}
-	defer k.Close()
+	defer func() {
+		_ = k.Close()
+	}()
 	// read all subkeys, it should not return an err here
 	keys, err := k.ReadSubKeyNames(-1)
 	if err != nil {
@@ -170,13 +172,13 @@ func getdeviceid(componentID string, interfaceName string) (deviceid string, err
 		}
 		val, _, err := key.GetStringValue("ComponentId")
 		if err != nil {
-			key.Close()
+			_ = key.Close()
 			continue
 		}
 		if val == componentID {
 			val, _, err = key.GetStringValue("NetCfgInstanceId")
 			if err != nil {
-				key.Close()
+				_ = key.Close()
 				continue
 			}
 			if len(interfaceName) > 0 {
@@ -185,7 +187,9 @@ func getdeviceid(componentID string, interfaceName string) (deviceid string, err
 				if err != nil {
 					continue
 				}
-				defer k2.Close()
+				defer func() {
+					_ = k2.Close()
+				}()
 				val, _, err := k2.GetStringValue("Name")
 				if err != nil || val != interfaceName {
 					continue
@@ -194,7 +198,7 @@ func getdeviceid(componentID string, interfaceName string) (deviceid string, err
 			key.Close()
 			return val, nil
 		}
-		key.Close()
+		_ = key.Close()
 	}
 	if len(interfaceName) > 0 {
 		return "", errors.New("Failed to find the tap device in registry with specified ComponentId '" + componentID + "' and InterfaceName '" + interfaceName + "', TAP driver may be not installed or you may have specified an interface name that doesn't exist")
@@ -232,11 +236,8 @@ func openTap(config Config) (ifce *Interface, err error) {
 	file, err := syscall.CreateFile(pathp, syscall.GENERIC_READ|syscall.GENERIC_WRITE, uint32(syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE), nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_SYSTEM|syscall.FILE_FLAG_OVERLAPPED, 0)
 	// if err hanppens, close the interface.
 	defer func() {
-		if err != nil {
-			syscall.Close(file)
-		}
-		if err := recover(); err != nil {
-			syscall.Close(file)
+		if recover() != nil || err != nil {
+			_ = syscall.Close(file)
 		}
 	}()
 	if err != nil {
