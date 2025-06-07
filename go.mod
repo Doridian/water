@@ -2,7 +2,7 @@ module github.com/Doridian/water
 
 go 1.23.1
 
-toolchain go1.24.3
+toolchain go1.24.4
 
 require (
 	github.com/Doridian/gopacket v1.3.4
