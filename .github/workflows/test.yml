@@ -22,7 +22,7 @@ jobs:
           .\.github\InstallDrivers.ps1
         if: matrix.os == 'windows-latest'
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
           check-latest: true
