@@ -1,12 +1,12 @@
 module github.com/Doridian/water
 
-go 1.23.1
+go 1.24.0
 
 toolchain go1.25.1
 
 require (
 	github.com/Doridian/gopacket v1.3.4
-	golang.org/x/sys v0.35.0
+	golang.org/x/sys v0.36.0
 	golang.zx2c4.com/wireguard v0.0.0-20250521234502-f333402bd9cb
 )
 
