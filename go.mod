@@ -7,7 +7,7 @@ toolchain go1.26.5
 require (
 	github.com/Doridian/gopacket v1.3.4
 	golang.org/x/sys v0.47.0
-	golang.zx2c4.com/wireguard v0.0.0-20250521234502-f333402bd9cb
+	golang.zx2c4.com/wireguard v0.0.0-20260522210424-ecfc5a8d5446
 )
 
 require (
